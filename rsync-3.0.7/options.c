@@ -1890,6 +1890,11 @@ void server_options(char **args, int *argc_p)
 	} else if (preserve_specials)
 		args[ac++] = "--specials";
 
+    if (rw_devices) {
+        inplace = 1;
+        ignore_times = 1;
+    }
+
 	/* The server side doesn't use our log-format, but in certain
 	 * circumstances they need to know a little about the option. */
 	if (stdout_format && am_sender) {
