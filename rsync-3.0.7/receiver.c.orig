@@ -38,7 +38,6 @@ extern int protocol_version;
 extern int relative_paths;
 extern int preserve_hard_links;
 extern int preserve_perms;
-extern int rw_devices;
 extern int preserve_xattrs;
 extern int basis_dir_cnt;
 extern int make_backups;
@@ -166,7 +165,6 @@ int open_tmpfile(char *fnametmp, const char *fname, struct file_struct *file)
 static int receive_data(int f_in, char *fname_r, int fd_r, OFF_T size_r,
 			const char *fname, int fd, OFF_T total_size)
 {
-	STRUCT_STAT st;
 	static char file_sum1[MAX_DIGEST_LEN];
 	static char file_sum2[MAX_DIGEST_LEN];
 	struct map_struct *mapbuf;
@@ -287,14 +285,10 @@ static int receive_data(int f_in, char *fname_r, int fd_r, OFF_T size_r,
 		goto report_write_error;
 
 #ifdef HAVE_FTRUNCATE
-	(void)do_fstat(fd,&st);
-	/* Makes no sense to attempt to ftruncate() a block device: */
-	if (!(IS_DEVICE(st.st_mode))) {
-		if (inplace && fd != -1
-		 && ftruncate(fd, offset) < 0) {
-			rsyserr(FERROR_XFER, errno, "ftruncate failed on %s",
-				full_fname(fname));
-		}
+	if (inplace && fd != -1
+	 && ftruncate(fd, offset) < 0) {
+		rsyserr(FERROR_XFER, errno, "ftruncate failed on %s",
+			full_fname(fname));
 	}
 #endif
 
@@ -674,23 +668,9 @@ int recv_files(int f_in, char *local_name)
 			continue;
 		}
 
-		if (fd1 != -1 && !(S_ISREG(st.st_mode) || (rw_devices && IS_DEVICE(st.st_mode)))) {
+		if (fd1 != -1 && !S_ISREG(st.st_mode)) {
 			close(fd1);
 			fd1 = -1;
-		}
-
-		/* On Linux systems (at least), st_size is typically 0 for devices.
-		 * If so, try to determine the actual device size. */
-		if (fd1 != -1 && IS_DEVICE(st.st_mode) && st.st_size == 0) {
-			OFF_T off = lseek(fd1, 0, SEEK_END);
-			if (off == (OFF_T) -1)
-				rsyserr(FERROR, errno, "failed to seek to end of %s to determine size", fname);
-			else {
-				st.st_size = off;
-				off = lseek(fd1, 0, SEEK_SET);
-				if (off != 0)
-					rsyserr(FERROR, errno, "failed to seek back to beginning of %s to read it", fname);
-			}
 		}
 
 		/* If we're not preserving permissions, change the file-list's

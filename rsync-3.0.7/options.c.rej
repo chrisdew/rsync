@@ -1,0 +1,14 @@
+--- options.c
++++ options.c
+@@ -1804,6 +1807,11 @@
+ 
+ 	set_output_verbosity(verbose, DEFAULT_PRIORITY);
+ 
++	if (rw_devices) {
++		inplace = 1;
++		ignore_times = 1;
++	}
++
+ 	if (do_stats) {
+ 		parse_output_words(info_words, info_levels,
+ 			verbose > 1 ? "stats3" : "stats2", DEFAULT_PRIORITY);

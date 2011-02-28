@@ -63,7 +63,6 @@ extern int non_perishable_cnt;
 extern int prune_empty_dirs;
 extern int copy_links;
 extern int copy_unsafe_links;
-extern int rw_devices;
 extern int protocol_version;
 extern int sanitize_paths;
 extern int munge_symlinks;
@@ -217,7 +216,7 @@ static int readlink_stat(const char *path, STRUCT_STAT *stp, char *linkbuf)
 #endif
 }
 
-static int link_stat2(const char *path, STRUCT_STAT *stp, int follow_dirlinks)
+int link_stat(const char *path, STRUCT_STAT *stp, int follow_dirlinks)
 {
 #ifdef SUPPORT_LINKS
 	if (copy_links)
@@ -233,28 +232,6 @@ static int link_stat2(const char *path, STRUCT_STAT *stp, int follow_dirlinks)
 #else
 	return x_stat(path, stp, NULL);
 #endif
-}
-
-int link_stat(const char *path, STRUCT_STAT *stp, int follow_dirlinks)
-{
-	if (link_stat2(path, stp, follow_dirlinks) != 0)
-		return -1;
-	if (rw_devices && S_ISBLK(stp->st_mode) && stp->st_size == 0) {
-		/* On Linux systems (at least), st_size is typically 0 for devices.
-		 * If so, try to determine the actual device size. */
-		int fdx = do_open(path, O_RDONLY, 0);
-		if (fdx == -1)
-			rsyserr(FERROR, errno, "failed to open device %s to determine size", path);
-		else {
-			OFF_T off = lseek(fdx, 0, SEEK_END);
-			if (off == (OFF_T)-1)
-				rsyserr(FERROR, errno, "failed to seek to end of %s to determine size", path);
-			else
-				stp->st_size = off;
-			close(fdx);
-		}
-	}
-	return 0;
 }
 
 static inline int is_daemon_excluded(const char *fname, int is_dir)
@@ -649,7 +626,7 @@ static void send_file_entry(int f, const char *fname, struct file_struct *file,
   the_end:
 	strlcpy(lastname, fname, MAXPATHLEN);
 
-	if (S_ISREG(mode) || S_ISLNK(mode) || (rw_devices && S_ISBLK(mode)))
+	if (S_ISREG(mode) || S_ISLNK(mode))
 		stats.total_size += F_LENGTH(file);
 }
 
@@ -1292,8 +1269,7 @@ struct file_struct *make_file(const char *fname, struct file_list *flist,
 #ifdef HAVE_STRUCT_STAT_ST_RDEV
 	if (IS_DEVICE(st.st_mode)) {
 		tmp_rdev = st.st_rdev;
-		if (!rw_devices || !S_ISBLK(st.st_mode))
-			st.st_size = 0;
+		st.st_size = 0;
 	} else if (IS_SPECIAL(st.st_mode))
 		st.st_size = 0;
 #endif

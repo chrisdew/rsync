@@ -35,7 +35,6 @@ extern int read_only;
 extern int list_only;
 extern int preserve_perms;
 extern int preserve_executability;
-extern int rw_devices;
 
 #define RETURN_ERROR_IF(x,e) \
 	do { \
@@ -242,56 +241,20 @@ int do_mkstemp(char *template, mode_t perms)
 int do_stat(const char *fname, STRUCT_STAT *st)
 {
 #ifdef USE_STAT64_FUNCS
-	if (stat64(fname, st) != 0)
-		return -1;
+	return stat64(fname, st);
 #else
-	if (stat(fname, st) != 0)
-		return -1;
+	return stat(fname, st);
 #endif
-	if (rw_devices && S_ISBLK(st->st_mode) && st->st_size == 0) {
-		/* On Linux systems (at least), st_size is typically 0 for devices.
-		 * If so, try to determine the actual device size. */
-		int fdx = do_open(fname, O_RDONLY, 0);
-		if (fdx == -1)
-			rsyserr(FERROR, errno, "failed to open device %s to determine size", fname);
-		else {
-			OFF_T off = lseek(fdx, 0, SEEK_END);
-			if (off == (OFF_T)-1)
-				rsyserr(FERROR, errno, "failed to seek to end of %s to determine size", fname);
-			else
-				st->st_size = off;
-			close(fdx);
-		}
-	}
-	return 0;
 }
 
 int do_lstat(const char *fname, STRUCT_STAT *st)
 {
 #ifdef SUPPORT_LINKS
 # ifdef USE_STAT64_FUNCS
-	if (lstat64(fname, st) != 0)
-		return -1;
+	return lstat64(fname, st);
 # else
-	if (lstat(fname, st) != 0)
-		return -1;
+	return lstat(fname, st);
 # endif
-	if (rw_devices && S_ISBLK(st->st_mode) && st->st_size == 0) {
-		/* On Linux systems (at least), st_size is typically 0 for devices.
-		 * If so, try to determine the actual device size. */
-		int fdx = do_open(fname, O_RDONLY, 0);
-		if (fdx == -1)
-			rsyserr(FERROR, errno, "failed to open device %s to determine size", fname);
-		else {
-			OFF_T off = lseek(fdx, 0, SEEK_END);
-			if (off == (OFF_T)-1)
-				rsyserr(FERROR, errno, "failed to seek to end of %s to determine size", fname);
-			else
-				st->st_size = off;
-			close(fdx);
-		}
-	}
-	return 0;
 #else
 	return do_stat(fname, st);
 #endif
@@ -300,30 +263,10 @@ int do_lstat(const char *fname, STRUCT_STAT *st)
 int do_fstat(int fd, STRUCT_STAT *st)
 {
 #ifdef USE_STAT64_FUNCS
-	if (fstat64(fd, st) != 0)
-		return -1;
+	return fstat64(fd, st);
 #else
-	if (fstat(fd, st) != 0)
-		return -1;
+	return fstat(fd, st);
 #endif
-	if (rw_devices && S_ISBLK(st->st_mode) && st->st_size == 0) {
-		/* On Linux systems (at least), st_size is typically 0 for devices.
-		 * If so, try to determine the actual device size. */
-		OFF_T off_save = lseek(fd, 0, SEEK_CUR);
-		if (off_save == (OFF_T)-1)
-			rsyserr(FERROR, errno, "failed to seek on device inode %lld to read current position", (long long int)(st->st_ino));
-		else {
-			OFF_T off = lseek(fd, 0, SEEK_END);
-			if (off == (OFF_T)-1)
-				rsyserr(FERROR, errno, "failed to seek to end on device inode %lld to determine size", (long long int)(st->st_ino));
-			else
-				st->st_size = off;
-			off = lseek(fd, off_save, SEEK_SET);
-			if (off == (OFF_T)-1)
-				rsyserr(FERROR, errno, "failed to seek to origin position on device inode %lld", (long long int)(st->st_ino));
-		}
-	}
-	return 0;
 }
 
 OFF_T do_lseek(int fd, OFF_T offset, int whence)

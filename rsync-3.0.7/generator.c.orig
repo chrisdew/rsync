@@ -39,7 +39,6 @@ extern int preserve_acls;
 extern int preserve_xattrs;
 extern int preserve_links;
 extern int preserve_devices;
-extern int rw_devices;
 extern int preserve_specials;
 extern int preserve_hard_links;
 extern int preserve_executability;
@@ -1368,23 +1367,6 @@ static void recv_generator(char *fname, struct file_struct *file, int ndx,
 
 		statret = link_stat(fname, &sx.st, keep_dirlinks && is_dir);
 		stat_errno = errno;
-
-		if (statret == 0 && IS_DEVICE(sx.st.st_mode) && sx.st.st_size == 0) {
-			/* On Linux systems (at least), st_size is typically 0 for devices.
-			 * If so, try to determine the actual device size. */
-			int fdx = do_open(fname, O_RDONLY, 0);
-			if ( fdx == -1 ) {
-				rsyserr(FERROR, errno, "failed to open device %s to determine size", fname);
-			}
-			else {
-				OFF_T off = lseek(fdx, 0, SEEK_END);
-				if (off == (OFF_T)-1)
-					rsyserr(FERROR, errno, "failed to seek to end of %s to determine size", fname);
-				else
-					sx.st.st_size = off;
-				close(fdx);
-			}
-		}
 	}
 
 	if (ignore_non_existing > 0 && statret == -1 && stat_errno == ENOENT) {
@@ -1713,7 +1695,7 @@ static void recv_generator(char *fname, struct file_struct *file, int ndx,
 		goto cleanup;
 	}
 
-	if (!(S_ISREG(file->mode) || (rw_devices && IS_DEVICE(file->mode)))) {
+	if (!S_ISREG(file->mode)) {
 		if (solo_file)
 			fname = f_name(file, NULL);
 		rprintf(FINFO, "skipping non-regular file \"%s\"\n", fname);
@@ -1751,7 +1733,7 @@ static void recv_generator(char *fname, struct file_struct *file, int ndx,
 	fnamecmp = fname;
 	fnamecmp_type = FNAMECMP_FNAME;
 
-	if (statret == 0 && !(S_ISREG(sx.st.st_mode) || (rw_devices && IS_DEVICE(sx.st.st_mode)))) {
+	if (statret == 0 && !S_ISREG(sx.st.st_mode)) {
 		if (delete_item(fname, sx.st.st_mode, del_opts | DEL_FOR_FILE) != 0)
 			goto cleanup;
 		statret = -1;
