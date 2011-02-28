@@ -1,0 +1,21 @@
+From: Wayne Davison <wayned@samba.org>
+Date: Tue, 22 Jul 2008 06:11:23 +0000 (-0700)
+Subject: Explicitly cast an int64 to an int32.
+X-Git-Url: http://git.samba.org/?p=rsync.git;a=commitdiff_plain;h=aad635f766c450cd2cfac5fe5705213a417050b4;hp=a72f37bb67f16c2d5a17bae77f7a82bcfdd96a9c
+
+Explicitly cast an int64 to an int32.
+---
+
+diff --git a/hashtable.c b/hashtable.c
+index 7da907c..1775a0b 100644
+--- a/hashtable.c
++++ b/hashtable.c
+@@ -142,7 +142,7 @@ void *hashtable_find(struct hashtable *tbl, int64 key, int allocate_if_missing)
+ 	if (key64)
+ 		((struct ht_int64_node*)node)->key = key;
+ 	else
+-		node->key = key;
++		node->key = (int32)key;
+ 	tbl->entries++;
+ 	return node;
+ }
